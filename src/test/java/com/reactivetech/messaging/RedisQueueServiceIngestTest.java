@@ -11,9 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import com.blaze.queue.QueueService;
-import com.blaze.queue.data.TextData;
-import com.blaze.queue.redis.Blaze;
+import com.blaze.mq.QueueService;
+import com.blaze.mq.data.TextData;
+import com.blaze.mq.redis.Blaze;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest(classes = {Blaze.class})
@@ -22,7 +22,7 @@ public class RedisQueueServiceIngestTest {
 	@Autowired
 	QueueService service;
 	
-	private final int iteration = 100000;
+	private final int iteration = 10;
 	@Test
 	public void testAddToQueue()
 	{

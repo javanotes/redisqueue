@@ -1,0 +1,56 @@
+package com.blaze.mq.consume;
+
+import com.blaze.mq.Data;
+
+/**
+ * Callback on a CMQ. Do NOT use this interface directly. Subclass from {@linkplain AbstractQueueListener}.
+ * @author esutdal
+ * @see AbstractQueueListener
+ * @param <T>
+ */
+public interface QueueListener<T extends Data> extends Consumer<T> {
+
+	/**
+	 * The type of {@linkplain Data} this listener is receiving.
+	 * @return
+	 */
+	Class<T> dataType();
+	/**
+	 * Unique identifier for this queue listener
+	 * @return
+	 */
+	String identifier();
+	/**
+	 * Max parallelism to achieve
+	 * @return
+	 */
+	int concurrency();
+	/**
+	 * The exchange type
+	 * @return
+	 */
+	String exchange();
+	/**
+	 * Max redelivery attempts.
+	 * @return
+	 */
+	short maxDeliveryAttempts();
+		
+	/**
+	 * Check if a record is eligible for re-delivery based on expiration/delivery count. The {@linkplain Data} instance
+	 * may be null.
+	 * @param expired
+	 * @param redeliveryCount
+	 * @param d
+	 * @return
+	 */
+	boolean allowRedelivery(boolean expired, short redeliveryCount, Data d);
+	/**
+	 * Exception handler for listeners. The handler is called back only
+	 * when a message is going to be redelivered due to an execution exception at {@link #onMessage(Data)}.
+	 * @param e
+	 * @param d
+	 */
+	void onExceptionCaught(Throwable e, Data d);
+
+}

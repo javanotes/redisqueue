@@ -3,5 +3,5 @@
  ) _ < )(__  /(__)\  / /_  )__)      > >
 (____/(____)(__)(__)(____)(____)()()/_/ 
 
-A Queue-Oriented-Microsystem on Redis
+A message queuing framework over Redis
 ========================================
