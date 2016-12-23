@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
 	<name>redis-mq</name>
-	<comment>Project cassandra-mq created by Buildship.</comment>
+	<comment>Project redis-mq created by Buildship.</comment>
 	<projects>
 	</projects>
 	<buildSpec>
