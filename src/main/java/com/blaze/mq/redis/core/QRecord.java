@@ -9,7 +9,7 @@ import java.util.Date;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.blaze.mq.Data;
-import com.blaze.mq.common.InternalError;
+import com.blaze.mq.common.BlazeInternalError;
 
 public class QRecord implements Serializable{
 
@@ -35,7 +35,7 @@ public class QRecord implements Serializable{
 		try {
 			md.writeData(new DataOutputStream(bos));
 		} catch (IOException e) {
-			throw new InternalError("Unable to serialize message", e);
+			throw new BlazeInternalError("Unable to serialize message", e);
 		}
 		setPayload(ByteBuffer.wrap(bos.toByteArray()));
 	}

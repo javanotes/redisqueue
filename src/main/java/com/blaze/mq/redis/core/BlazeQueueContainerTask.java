@@ -11,6 +11,7 @@ import com.blaze.mq.Data;
 import com.blaze.mq.common.BlazingException;
 import com.blaze.mq.consume.AbstractQueueListener;
 import com.blaze.mq.container.QueueContainerTask;
+import com.blaze.mq.redis.throttle.MessageThrottled;
 /**
  * The task class that works in a work-stealing thread pool.
  * @author esutdal
@@ -157,7 +158,16 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 				fireOnMessage(nextMessage);
 			} 
 			 
-		}catch (TimeoutException t){}
+		}
+		catch (TimeoutException t) {} 
+		catch (MessageThrottled e) 
+		{
+			log.debug(e+"");
+		}
+		catch(Exception e)
+		{
+			log.error("Unexpected error!", e);
+		}
 		finally 
 		{
 			forkTasks(1);//fork next corresponding task
@@ -167,7 +177,7 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 	 * @see com.reactivetech.messaging.cmq.core.QueueContainerTask#fetchHead()
 	 */
 	@Override
-	public QRecord fetchHead() throws TimeoutException
+	public QRecord fetchHead() throws TimeoutException, MessageThrottled
 	{
 		return container.fetchHead(consumer.exchange(), consumer.routing(),
 				container.getPollInterval(), TimeUnit.MILLISECONDS);

@@ -22,7 +22,7 @@ public class RedisQueueServiceIngestTest {
 	@Autowired
 	QueueService service;
 	
-	private final int iteration = 10;
+	private final int iteration = 100000;
 	@Test
 	public void testAddToQueue()
 	{

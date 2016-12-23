@@ -34,25 +34,24 @@ public class QRecordSerializer implements RedisSerializer<QRecord> {
 	@Override
 	public byte[] serialize(QRecord t) throws SerializationException {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		DataOutputStream d = new DataOutputStream(out);
 		try 
 		{
-			d.writeLong(t.getT0TS() != null ? t.getT0TS().getTime() : -1);
-			d.writeLong(t.getTnTS() != null ? t.getTnTS().getTime() : -1);
-			d.writeLong(t.getExpiryMillis());
-			
-			UUID u = t.getKey().getTimeuid();
-			d.writeLong(u.getMostSignificantBits());
-			d.writeLong(u.getLeastSignificantBits());
-			d.writeShort(t.getRedeliveryCount());
-			
-			d.writeUTF(t.getKey().getExchange());
-			d.writeUTF(t.getKey().getRoutingKey());
-			
-			d.writeUTF(t.getCorrId());
-			d.writeUTF(t.getReplyTo());
-			d.writeBoolean(t.isRedelivered());
-			d.write(t.getPayload().array());
+			if (t != null) {
+				DataOutputStream d = new DataOutputStream(out);
+				d.writeLong(t.getT0TS() != null ? t.getT0TS().getTime() : -1);
+				d.writeLong(t.getTnTS() != null ? t.getTnTS().getTime() : -1);
+				d.writeLong(t.getExpiryMillis());
+				UUID u = t.getKey().getTimeuid();
+				d.writeLong(u.getMostSignificantBits());
+				d.writeLong(u.getLeastSignificantBits());
+				d.writeShort(t.getRedeliveryCount());
+				d.writeUTF(t.getKey().getExchange());
+				d.writeUTF(t.getKey().getRoutingKey());
+				d.writeUTF(t.getCorrId());
+				d.writeUTF(t.getReplyTo());
+				d.writeBoolean(t.isRedelivered());
+				d.write(t.getPayload().array());
+			}
 			
 		} 
 		catch (Exception e) 
@@ -64,40 +63,40 @@ public class QRecordSerializer implements RedisSerializer<QRecord> {
 
 	@Override
 	public QRecord deserialize(byte[] bytes) throws SerializationException {
-		QRecord qr = new QRecord();
-		DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
 		try 
 		{
-			long time = in.readLong();
-			qr.setT0TS(time == -1 ? null : new Date(time));
-			time = in.readLong();
-			qr.setTnTS(time == -1 ? null : new Date(time));
-			qr.setExpiryMillis(in.readLong());
-			
-			UUID timeuid = new UUID(in.readLong(), in.readLong());
-			QKey qk = new QKey();
-			qk.setTimeuid(timeuid);
-			
-			qr.setRedeliveryCount(in.readShort());
-			
-			qk.setExchange(in.readUTF());
-			qk.setRoutingKey(in.readUTF());
-			qr.setKey(qk);
-			
-			qr.setCorrId(in.readUTF());
-			qr.setReplyTo(in.readUTF());
-			
-			qr.setRedelivered(in.readBoolean());
-			
-			int len = in.available();
-			byte[] b = new byte[len];
-			in.readFully(b);
-			qr.setPayload(ByteBuffer.wrap(b));
+			if (bytes != null) 
+			{
+				QRecord qr = new QRecord();
+				DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
+				long time = in.readLong();
+				qr.setT0TS(time == -1 ? null : new Date(time));
+				time = in.readLong();
+				qr.setTnTS(time == -1 ? null : new Date(time));
+				qr.setExpiryMillis(in.readLong());
+				UUID timeuid = new UUID(in.readLong(), in.readLong());
+				QKey qk = new QKey();
+				qk.setTimeuid(timeuid);
+				qr.setRedeliveryCount(in.readShort());
+				qk.setExchange(in.readUTF());
+				qk.setRoutingKey(in.readUTF());
+				qr.setKey(qk);
+				qr.setCorrId(in.readUTF());
+				qr.setReplyTo(in.readUTF());
+				qr.setRedelivered(in.readBoolean());
+				int len = in.available();
+				byte[] b = new byte[len];
+				in.readFully(b);
+				qr.setPayload(ByteBuffer.wrap(b));
+				
+				return qr;
+			}
 			
 		} catch (Exception e) {
 			throw new SerializationException("I/O exception on deserialize", e);
 		}
-		return qr;
+		return null;
+		
 	}
 
 }

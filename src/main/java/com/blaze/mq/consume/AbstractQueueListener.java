@@ -41,7 +41,7 @@ import com.blaze.mq.Data;
 import com.blaze.mq.DataSerializable;
 import com.blaze.mq.QueueService;
 import com.blaze.mq.common.BlazingException;
-import com.blaze.mq.common.InternalError;
+import com.blaze.mq.common.BlazeInternalError;
 import com.blaze.mq.redis.core.QRecord;
 
 /**
@@ -166,7 +166,7 @@ public abstract class AbstractQueueListener<T extends Data> implements QueueList
 				throw ce;
 			}
 		} catch (InstantiationException | IllegalAccessException | IOException e) {
-			throw new InternalError("Fatal error", e);
+			throw new BlazeInternalError("Fatal error", e);
 		}
 	}
 	/**

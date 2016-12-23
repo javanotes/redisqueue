@@ -22,6 +22,8 @@ import com.blaze.mq.Data;
 import com.blaze.mq.consume.AbstractQueueListener;
 import com.blaze.mq.container.QueueContainer;
 import com.blaze.mq.redis.ops.DataAccessor;
+import com.blaze.mq.redis.throttle.ConsumerThrottler;
+import com.blaze.mq.redis.throttle.MessageThrottled;
 /**
  * The core container that manages listener task execution. This class
  * is responsible for scheduling the worker threads amongst the listeners and
@@ -30,12 +32,14 @@ import com.blaze.mq.redis.ops.DataAccessor;
  *
  */
 @Component
-public class BlazeQueueContainer implements Runnable, QueueContainer{
+class BlazeQueueContainer implements Runnable, QueueContainer{
 
 	private static final Logger log = LoggerFactory.getLogger(BlazeQueueContainer.class);
 	
 	@Autowired
 	private DataAccessor redisOps;
+	@Autowired
+	private ConsumerThrottler throttler;
 	
 	private ForkJoinPool threadPool;
 	@Value("${consumer.worker.thread:0}")
@@ -153,6 +157,9 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 	}
 	
 	private long pollInterval;
+
+	@Value("${consumer.throttle.tps:1000}")
+	private int throttleTps;
 	/* (non-Javadoc)
 	 * @see com.reactivetech.messaging.cmq.core.IQueueListenerContainer#getPollInterval()
 	 */
@@ -168,7 +175,16 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 		this.pollInterval = pollInterval;
 	}
 
-	QRecord fetchHead(String exchange, String routing, long pollInterval2, TimeUnit milliseconds) throws TimeoutException {
-		return redisOps.fetchHead(exchange, routing, pollInterval2, milliseconds);
+	QRecord fetchHead(String exchange, String routing, long pollInterval2, TimeUnit milliseconds) throws TimeoutException, MessageThrottled {
+		if(throttler.allowMessageConsume(throttleTps))
+		{
+			log.debug("Allowed fetching head");
+			QRecord qr = redisOps.fetchHead(exchange, routing, pollInterval2, milliseconds);
+			log.debug("Incrementing count");
+			throttler.incrementCount();
+			log.debug("Returning..");
+			return qr;
+		}
+		throw new MessageThrottled();
 	}
 }

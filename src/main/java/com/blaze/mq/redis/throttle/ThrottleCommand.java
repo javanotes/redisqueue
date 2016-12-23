@@ -13,27 +13,21 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.blaze.mq.container;
+package com.blaze.mq.redis.throttle;
 
-import java.util.concurrent.TimeoutException;
+import org.apache.commons.chain.Command;
+import org.apache.commons.chain.Context;
 
-import com.blaze.mq.redis.core.QRecord;
-import com.blaze.mq.redis.throttle.MessageThrottled;
+class ThrottleCommand implements Command {
 
-public interface QueueContainerTask {
+	public ThrottleCommand() {
+	}
 
-	/**
-	 * Fire callback on consumer.
-	 * @param qr
-	 */
-	void fireOnMessage(QRecord qr);
-
-	/**
-	 * Perform a blocking fetch for queue head.
-	 * @return
-	 * @throws TimeoutException
-	 * @throws MessageThrottled 
-	 */
-	QRecord fetchHead() throws TimeoutException, MessageThrottled;
+	@Override
+	public boolean execute(Context context) throws Exception {
+		MTContext mt = (MTContext) context;
+		mt.setThrottle(mt.getThrottler().getCount() >= mt.getThrottlingTPS());
+		return CONTINUE_PROCESSING;
+	}
 
 }
