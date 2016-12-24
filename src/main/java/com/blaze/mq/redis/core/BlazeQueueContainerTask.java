@@ -11,6 +11,7 @@ import com.blaze.mq.Data;
 import com.blaze.mq.common.BlazingException;
 import com.blaze.mq.consume.AbstractQueueListener;
 import com.blaze.mq.container.QueueContainerTask;
+import com.blaze.mq.redis.throttle.ConsumerThrottler;
 import com.blaze.mq.redis.throttle.MessageThrottled;
 /**
  * The task class that works in a work-stealing thread pool.
@@ -23,14 +24,22 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 	private final int concurrency;
 	private final AbstractQueueListener<T> consumer;
 	private final BlazeQueueContainer container;
+	private final ConsumerThrottler throttler;
+	private int throttleTps;
+	public int getThrottleTps() {
+		return throttleTps;
+	}
+	public void setThrottleTps(int throttleTps) {
+		this.throttleTps = throttleTps;
+	}
 	/**
 	 * Instantiates a new task with concurrency level as set in the consumer. This constructor is kept
 	 * public to schedule the first shot of task from the container.
 	 * @param <T>
 	 * @param ql
 	 */
-	public BlazeQueueContainerTask(AbstractQueueListener<T> ql, BlazeQueueContainer container) {
-		this(ql, ql.concurrency(), container);
+	public BlazeQueueContainerTask(AbstractQueueListener<T> ql, BlazeQueueContainer container, ConsumerThrottler throttler) {
+		this(ql, ql.concurrency(), container, throttler);
 	}
 	/**
 	 * Fork new parallel tasks to be scheduled in a work stealing pool. This constructor will be invoked from within
@@ -38,10 +47,11 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 	 * @param ql
 	 * @param concurrency
 	 */
-	private BlazeQueueContainerTask(AbstractQueueListener<T> ql, int concurrency, BlazeQueueContainer container) {
+	private BlazeQueueContainerTask(AbstractQueueListener<T> ql, int concurrency, BlazeQueueContainer container, ConsumerThrottler throttler) {
 		this.concurrency = concurrency;
 		this.consumer = ql;
 		this.container = container;
+		this.throttler = throttler;
 	}
 	
 	/**
@@ -62,6 +72,12 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 		}
 
 	}
+	private BlazeQueueContainerTask<T> copy()
+	{
+		BlazeQueueContainerTask<T> b = new BlazeQueueContainerTask<T>(consumer, 1, container, throttler);
+		b.setThrottleTps(this.throttleTps);
+		return b;
+	}
 	/**
 	 * Fork parallel tasks based on the concurrency. 
 	 * These tasks should be available for work-stealing via FJpool.
@@ -72,7 +88,7 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 		BlazeQueueContainerTask<T> qt = null;
 		for(int i=0; i<parallelism; i++)
         {
-        	qt = new BlazeQueueContainerTask<T>(consumer, 1, container);
+        	qt = copy();
         	qt.fork();
         }
 	}
@@ -179,7 +195,20 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 	@Override
 	public QRecord fetchHead() throws TimeoutException, MessageThrottled
 	{
-		return container.fetchHead(consumer.exchange(), consumer.routing(),
-				container.getPollInterval(), TimeUnit.MILLISECONDS);
+		return fetchHeadIfNotThrottled();
+	}
+	
+	private QRecord fetchHeadIfNotThrottled() throws TimeoutException, MessageThrottled {
+		if(throttler.allowMessageConsume(throttleTps))
+		{
+			log.debug("Allowed fetching head");
+			QRecord qr = container.fetchHead(consumer.exchange(), consumer.routing(),
+					container.getPollInterval(), TimeUnit.MILLISECONDS);
+			log.debug("Incrementing count");
+			throttler.incrementCount();
+			log.debug("Returning..");
+			return qr;
+		}
+		throw new MessageThrottled();
 	}
 }

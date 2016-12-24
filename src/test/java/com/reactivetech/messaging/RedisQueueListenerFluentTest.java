@@ -33,7 +33,7 @@ public class RedisQueueListenerFluentTest {
 		final CountDownLatch l = new CountDownLatch(n);
 		
 		QueueListener<TextData> abs = new QueueListenerBuilder()
-		.concurrency(4)
+		.concurrency(1)
 		.consumer(new Consumer<TextData>() {
 
 			@Override

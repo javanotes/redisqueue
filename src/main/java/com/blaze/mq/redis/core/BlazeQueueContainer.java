@@ -19,11 +19,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.blaze.mq.Data;
+import com.blaze.mq.common.BlazeInternalError;
 import com.blaze.mq.consume.AbstractQueueListener;
 import com.blaze.mq.container.QueueContainer;
 import com.blaze.mq.redis.ops.DataAccessor;
-import com.blaze.mq.redis.throttle.ConsumerThrottler;
-import com.blaze.mq.redis.throttle.MessageThrottled;
+import com.blaze.mq.redis.throttle.ConsumerThrottlerFactoryBean;
 /**
  * The core container that manages listener task execution. This class
  * is responsible for scheduling the worker threads amongst the listeners and
@@ -38,8 +38,6 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 	
 	@Autowired
 	private DataAccessor redisOps;
-	@Autowired
-	private ConsumerThrottler throttler;
 	
 	private ForkJoinPool threadPool;
 	@Value("${consumer.worker.thread:0}")
@@ -112,6 +110,14 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 		}
 		
 	}
+	@Autowired
+	ConsumerThrottlerFactoryBean throttlerFactory;
+	
+	@Value("${consumer.throttle.tps.millis:1000}")
+	private long throttlerPeriod;
+	@Value("${consumer.throttle.enable:true}")
+	private boolean enabled;
+	
 	/**
 	 * Run the specified listener.
 	 * @param task
@@ -119,7 +125,13 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 	private void run(AbstractQueueListener<? extends Data> task) {
 		if(running)
 		{
-			threadPool.execute(new BlazeQueueContainerTask<>(task, this));
+			try {
+				BlazeQueueContainerTask<? extends Data> runnable = new BlazeQueueContainerTask<>(task, this, throttlerFactory.getObject(throttlerPeriod, enabled));
+				runnable.setThrottleTps(throttleTps);
+				threadPool.execute(runnable);
+			} catch (Exception e) {
+				throw new BlazeInternalError("", e);
+			}
 		}
 		
 	}
@@ -175,7 +187,11 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 		this.pollInterval = pollInterval;
 	}
 
-	QRecord fetchHead(String exchange, String routing, long pollInterval2, TimeUnit milliseconds) throws TimeoutException, MessageThrottled {
+	QRecord fetchHead(String exchange, String routing, long pollInterval2, TimeUnit milliseconds) throws TimeoutException
+	{
+		QRecord qr = redisOps.fetchHead(exchange, routing, pollInterval2, milliseconds);
+		return qr;
+		/*
 		if(throttler.allowMessageConsume(throttleTps))
 		{
 			log.debug("Allowed fetching head");
@@ -186,5 +202,5 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 			return qr;
 		}
 		throw new MessageThrottled();
-	}
+	*/}
 }

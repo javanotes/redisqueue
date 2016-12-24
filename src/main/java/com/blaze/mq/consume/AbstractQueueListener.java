@@ -60,6 +60,9 @@ public abstract class AbstractQueueListener<T extends Data> implements QueueList
 	public String toString() {
 		return identifier()+" [exchange()=" + exchange() + ", routing()=" + routing() + ", concurrency()=" + concurrency() + "]";
 	}
+	
+	//TODO: Add throttling settings at consumer level
+	
 	private static final Logger log = LoggerFactory.getLogger(AbstractQueueListener.class);
 	/*
 	 * (non-Javadoc)
