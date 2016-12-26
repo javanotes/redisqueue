@@ -175,7 +175,9 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 			} 
 			 
 		}
-		catch (TimeoutException t) {} 
+		catch (TimeoutException t) {
+			log.debug(t+"");
+		} 
 		catch (MessageThrottled e) 
 		{
 			log.debug(e+"");

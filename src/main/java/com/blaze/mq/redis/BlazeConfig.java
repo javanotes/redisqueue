@@ -10,7 +10,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
  * ------------------------------------------------------- 
  */
 @Configuration
-public class Config {
+public class BlazeConfig {
 	@Bean
 	BlazeRedisTemplate template(RedisConnectionFactory connectionFactory)
 	{

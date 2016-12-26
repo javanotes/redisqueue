@@ -4,7 +4,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.cassandra.CassandraDataAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 
-@SpringBootApplication(scanBasePackageClasses = {Config.class}, exclude = {CassandraDataAutoConfiguration.class})
+@SpringBootApplication(scanBasePackageClasses = {BlazeConfig.class}, exclude = {CassandraDataAutoConfiguration.class})
 public class Blaze {
 
 	public static void main(String[] args) {

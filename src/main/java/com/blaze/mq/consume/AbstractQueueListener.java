@@ -40,15 +40,20 @@ import org.slf4j.LoggerFactory;
 import com.blaze.mq.Data;
 import com.blaze.mq.DataSerializable;
 import com.blaze.mq.QueueService;
-import com.blaze.mq.common.BlazingException;
 import com.blaze.mq.common.BlazeInternalError;
+import com.blaze.mq.common.BlazingException;
+import com.blaze.mq.container.QueueContainer;
 import com.blaze.mq.redis.core.QRecord;
 
 /**
  * Abstract base class to be extended for registering queue listeners.
- * @see IQueueService#registerListener(AbstractQueueListener, String)
+ * @see QueueContainer#register(QueueListener)
  */
 public abstract class AbstractQueueListener<T extends Data> implements QueueListener<T>{
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Object#hashCode()
+	 */
 	@Override
 	public final int hashCode() {
 		final int prime = 31;
@@ -56,13 +61,33 @@ public abstract class AbstractQueueListener<T extends Data> implements QueueList
 		result = prime * result + ((identifier() == null) ? 0 : identifier().hashCode());
 		return result;
 	}
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
 	@Override
 	public String toString() {
 		return identifier()+" [exchange()=" + exchange() + ", routing()=" + routing() + ", concurrency()=" + concurrency() + "]";
 	}
-	
-	//TODO: Add throttling settings at consumer level
-	
+	/*
+	 * (non-Javadoc)
+	 * @see com.blaze.mq.consume.Consumer#destroy()
+	 */
+	@Override
+	public void destroy() {
+		//noop
+	}
+	/**
+	 * Return false if a dedicated thread pool is requested for this consumer. When using a
+	 * dedicated pool, the worker thread is not configurable. It will kept equal to the number of cores available.
+	 * The consumer concurrency however, can always be configured. This is done to limit the number of threads created
+	 * with an application creating arbitrary number of consumers. 
+	 * @return Whether to use the shared pool. Default true.
+	 */
+	public boolean useSharedPool()
+	{
+		return true;
+	}
 	private static final Logger log = LoggerFactory.getLogger(AbstractQueueListener.class);
 	/*
 	 * (non-Javadoc)
@@ -83,11 +108,10 @@ public abstract class AbstractQueueListener<T extends Data> implements QueueList
 	{
 		return  QueueService.DEFAULT_XCHANGE;
 	}
-	/**
-	 * The routing key for the given exchange.
-	 * @return
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Object#equals(java.lang.Object)
 	 */
-	public abstract String routing();
 	@Override
 	public final boolean equals(Object obj) {
 		if (this == obj)

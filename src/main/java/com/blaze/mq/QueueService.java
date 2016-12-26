@@ -32,19 +32,12 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import com.blaze.mq.consume.QueueListener;
 import com.blaze.mq.redis.core.QRecord;
 
 public interface QueueService {
 
 	String DEFAULT_XCHANGE = "default";
 	
-	/**
-	 * Register a callback listener for the queue.
-	 * @param ql
-	 */
-	<T extends Data> void registerListener(QueueListener<T> ql);
-
 	/**
 	 * Adds new message to the default exchange and given routing key
 	 * 

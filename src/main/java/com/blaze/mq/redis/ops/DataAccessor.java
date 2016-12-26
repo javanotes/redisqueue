@@ -110,6 +110,8 @@ public class DataAccessor {
 	 */
 	public QRecord fetchHead(String xchng, String route, long await, TimeUnit unit) throws TimeoutException
 	{
+		log.debug(">>>>>>>>>> Start fetchHead <<<<<<<<< ");
+		log.debug("route -> "+route+"\tawait: "+await+" unit: "+unit);
 		String preparedKey = prepareListKey(xchng, route);
 		BoundListOperations<String, QRecord> listOps = redisTemplate.boundListOps(preparedKey);
 		QRecord qr = listOps.leftPop(await, unit);
@@ -118,7 +120,7 @@ public class DataAccessor {
 			//not making this asynchronous to maintain state integrity
 			try 
 			{
-				log.debug(">>>>>>>>>> List key generated: "+preparedKey);
+				log.debug("List key generated: "+preparedKey);
 				prepareCommit(qr, prepareHashKey(xchng, route));
 			} 
 			catch (Exception e) {

@@ -16,6 +16,7 @@ import com.blaze.mq.QueueService;
 import com.blaze.mq.consume.Consumer;
 import com.blaze.mq.consume.QueueListener;
 import com.blaze.mq.consume.QueueListenerBuilder;
+import com.blaze.mq.container.QueueContainer;
 import com.blaze.mq.data.TextData;
 import com.blaze.mq.redis.Blaze;
 
@@ -25,15 +26,17 @@ public class RedisQueueListenerFluentTest {
 
 	@Autowired
 	QueueService service;
+	@Autowired
+	QueueContainer container;
 	static final Logger log = LoggerFactory.getLogger(RedisQueueListenerFluentTest.class);
 	@Test
 	public void pollFromQueue()
 	{
 		int n = service.size(SimpleQueueListener.QNAME);
 		final CountDownLatch l = new CountDownLatch(n);
-		
+		log.info("MESSAGE TO FETCH => "+n);
 		QueueListener<TextData> abs = new QueueListenerBuilder()
-		.concurrency(1)
+		.concurrency(4)
 		.consumer(new Consumer<TextData>() {
 
 			@Override
@@ -43,13 +46,24 @@ public class RedisQueueListenerFluentTest {
 				l.countDown();
 				
 			}
+
+			@Override
+			public void destroy() {
+				log.info("RedisQueueListenerFluentTest.pollFromQueue().new Consumer() {...}.destroy()");
+				
+			}
+
+			@Override
+			public void init() {
+				log.info("RedisQueueListenerFluentTest.pollFromQueue().new Consumer() {...}.init()");
+			}
 		})
 		.route(SimpleQueueListener.QNAME)
 		.dataType(TextData.class)
 		.build();
 		
 		long start = System.currentTimeMillis();
-		service.registerListener(abs);
+		container.register(abs);
 		
 		try {
 			boolean b = l.await(300, TimeUnit.SECONDS);

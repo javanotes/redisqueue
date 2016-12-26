@@ -16,7 +16,7 @@ public class QueueListenerBuilder {
 	private String exchange, identifier;
 	private Class<? extends Data> data;
 	private Consumer<? extends Data> consumer;
-	
+	private boolean useSharedPool = true;
 	
 	public QueueListenerBuilder() {
 	}
@@ -38,6 +38,11 @@ public class QueueListenerBuilder {
 	public QueueListenerBuilder route(String r)
 	{
 		this.route = r;
+		return this;
+	}
+	public QueueListenerBuilder sharedPool(boolean r)
+	{
+		this.useSharedPool = r;
 		return this;
 	}
 	public QueueListenerBuilder exchange(String e)
@@ -72,6 +77,12 @@ public class QueueListenerBuilder {
 			return data;
 		}
 
+		@Override
+		public boolean useSharedPool()
+		{
+			return useSharedPool;
+			
+		}
 		public String exchange()
 		{
 			return exchange != null ? exchange : super.exchange();
@@ -98,6 +109,11 @@ public class QueueListenerBuilder {
 
 		public void setConsumer(Consumer<T> consumer2) {
 			this.consumer = consumer2;
+		}
+
+		@Override
+		public void init() {
+			this.consumer.init();
 		}
 
 	}

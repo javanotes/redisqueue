@@ -2,7 +2,7 @@ package com.blaze.mq.consume;
 
 import com.blaze.mq.Data;
 
-public interface Consumer<T extends Data> {
+public interface Consumer<T extends Data>{
 
 	/**
 	 * Callback method invoked on message added to queue.
@@ -12,5 +12,14 @@ public interface Consumer<T extends Data> {
 	 * @throws Exception
 	 */
 	void onMessage(T m) throws Exception;
-
+	/**
+	 * Lifecycle method on shutdown. This will be invoked after the executor threads
+	 * have shutdown. So it can be assumed that no {@link #onMessage()} will be executing
+	 * when this is invoked.
+	 */
+	void destroy();
+	/**
+	 * Lifecycle method on startup. May throw an unchecked exception.
+	 */
+	void init();
 }

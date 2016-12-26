@@ -1,8 +1,9 @@
 package com.blaze.mq.redis.core;
 
 import java.lang.Thread.UncaughtExceptionHandler;
-import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
 import java.util.concurrent.ForkJoinWorkerThread;
@@ -14,13 +15,16 @@ import javax.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 
 import com.blaze.mq.Data;
 import com.blaze.mq.common.BlazeInternalError;
 import com.blaze.mq.consume.AbstractQueueListener;
+import com.blaze.mq.consume.QueueListener;
 import com.blaze.mq.container.QueueContainer;
 import com.blaze.mq.redis.ops.DataAccessor;
 import com.blaze.mq.redis.throttle.ConsumerThrottlerFactoryBean;
@@ -32,7 +36,7 @@ import com.blaze.mq.redis.throttle.ConsumerThrottlerFactoryBean;
  *
  */
 @Component
-class BlazeQueueContainer implements Runnable, QueueContainer{
+public class BlazeQueueContainer implements Runnable, QueueContainer{
 
 	private static final Logger log = LoggerFactory.getLogger(BlazeQueueContainer.class);
 	
@@ -42,11 +46,10 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 	private ForkJoinPool threadPool;
 	@Value("${consumer.worker.thread:0}")
 	private int fjWorkers;
-	
-	@PostConstruct
-	void init()
+	private List<ForkJoinPool> threadPools;
+	private static ForkJoinPool newFJPool(int coreThreads, String name)
 	{
-		threadPool = new ForkJoinPool(fjWorkers <= 0 ? Runtime.getRuntime().availableProcessors() : fjWorkers, new ForkJoinWorkerThreadFactory() {
+		return new ForkJoinPool(coreThreads, new ForkJoinWorkerThreadFactory() {
 		      
 		      private int containerThreadCount = 0;
 
@@ -55,7 +58,7 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 		        ForkJoinWorkerThread t = new ForkJoinWorkerThread(pool){
 		          
 		        };
-		        t.setName("Container-Worker-"+(containerThreadCount ++));
+		        t.setName(name+"-Worker-"+(containerThreadCount ++));
 		        return t;
 		      }
 		    }, new UncaughtExceptionHandler() {
@@ -66,38 +69,64 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 		        
 		      }
 		    }, true);
-		running = true;
-		log.info("Container initialized with fj workers "+threadPool.getParallelism() + " fj poolSize "+threadPool.getPoolSize());
 	}
-	
+		
+	@PostConstruct
+	void init()
+	{
+		threadPools = new ArrayList<>();
+		int coreThreads =  fjWorkers <= 0 ? Runtime.getRuntime().availableProcessors() : fjWorkers;
+		
+		threadPool = newFJPool(coreThreads, "BlazeSharedPool");
+		threadPools.add(threadPool);
+		
+		running = true;
+		log.info("Container initialized with parallelism "+threadPool.getParallelism() + ", coreThreads "+coreThreads);
+		
+		run();
+	}
+	private void shutdownPools()
+	{
+		for (ForkJoinPool pool : threadPools) {
+			pool.shutdown();
+			try {
+				pool.awaitTermination(10, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+
+			} 
+		}
+	}
 	@PreDestroy
 	public void destroy()
 	{
 		running = false;
-		threadPool.shutdown();
-		try {
-			threadPool.awaitTermination(10, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			
+		shutdownPools();
+		for(AbstractQueueListener<? extends Data> l : listeners)
+		{
+			l.destroy();
+			log.info("["+l.identifier()+"] consumer destroyed");
 		}
 		log.info("Container stopped..");
 	}
-	private final Set<AbstractQueueListener<? extends Data>> listeners = new ConcurrentSkipListSet<>();
+	private final List<AbstractQueueListener<? extends Data>> listeners = Collections.synchronizedList(new ArrayList<>());
 		
 	private volatile boolean running;
 	/* (non-Javadoc)
 	 * @see com.reactivetech.messaging.cmq.core.IQueueListenerContainer#register(com.reactivetech.messaging.cmq.core.AbstractQueueListener)
 	 */
 	@Override
-	public <T extends Data> void register(AbstractQueueListener<T> listener)
+	public <T extends Data> void register(QueueListener<T> listener)
 	{
-		if(!running){
-			listeners.add(listener);
-		}
-		else
-			run(listener);
-		
-		log.info("Added listener "+listener);
+		Assert.isInstanceOf(AbstractQueueListener.class, listener);
+		AbstractQueueListener<T> aListener = (AbstractQueueListener<T>) listener;
+		register0(aListener);
+				
+		log.info("* Added listener "+listener);
+	}
+	private <T extends Data> void register0(AbstractQueueListener<T> aListener)
+	{
+		listeners.add(aListener);
+		run(aListener);
 	}
 	/* (non-Javadoc)
 	 * @see com.reactivetech.messaging.cmq.core.IQueueListenerContainer#run()
@@ -111,13 +140,25 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 		
 	}
 	@Autowired
-	ConsumerThrottlerFactoryBean throttlerFactory;
+	private ConsumerThrottlerFactoryBean throttlerFactory;
 	
 	@Value("${consumer.throttle.tps.millis:1000}")
 	private long throttlerPeriod;
 	@Value("${consumer.throttle.enable:true}")
 	private boolean enabled;
 	
+	private void initConsumer(AbstractQueueListener<? extends Data> task)
+	{
+		try {
+			task.init();
+		} catch (Exception e) {
+			throw new BeanInitializationException("Exception on consumer init for task "+task.identifier(), e);
+		}
+	}
+	
+	//Consider pool per listener? ForkJoinPool doesn't seem to be efficient 
+	//in multiple listener environment. Can there be scenario for a listener
+	//starvation?
 	/**
 	 * Run the specified listener.
 	 * @param task
@@ -125,11 +166,25 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 	private void run(AbstractQueueListener<? extends Data> task) {
 		if(running)
 		{
-			try {
+			initConsumer(task);
+			try 
+			{
 				BlazeQueueContainerTask<? extends Data> runnable = new BlazeQueueContainerTask<>(task, this, throttlerFactory.getObject(throttlerPeriod, enabled));
 				runnable.setThrottleTps(throttleTps);
-				threadPool.execute(runnable);
-			} catch (Exception e) {
+				log.debug("SUBMITTING TASK FOR ------------------- "+task);
+				if(task.useSharedPool())
+					threadPool.execute(runnable);
+				else
+				{
+					String name = task.identifier().length() > 20 ? task.identifier().substring(0, 20) : task.identifier();
+					ForkJoinPool pool = newFJPool(Runtime.getRuntime().availableProcessors(), name);
+					pool.execute(runnable);
+					threadPools.add(pool);
+				}
+				//threadPool.submit(runnable);
+				//threadPool.invoke(runnable);
+			} 
+			catch (Exception e) {
 				throw new BlazeInternalError("", e);
 			}
 		}
@@ -149,7 +204,7 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 		}
 	}
 	/**
-	 * Handle messages discarded after retry limit exceeded or expiration or unknown cause.
+	 * TODO: Handle messages discarded after retry limit exceeded or expiration or unknown cause.
 	 * @param qr
 	 */
 	protected void recordDeadLetter(QRecord qr) {
@@ -167,7 +222,7 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 		preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
 		redisOps.enqueueHead(qr, preparedKey);
 	}
-	
+	@Value("${consumer.poll.await.millis:100}")
 	private long pollInterval;
 
 	@Value("${consumer.throttle.tps:1000}")
@@ -191,16 +246,5 @@ class BlazeQueueContainer implements Runnable, QueueContainer{
 	{
 		QRecord qr = redisOps.fetchHead(exchange, routing, pollInterval2, milliseconds);
 		return qr;
-		/*
-		if(throttler.allowMessageConsume(throttleTps))
-		{
-			log.debug("Allowed fetching head");
-			QRecord qr = redisOps.fetchHead(exchange, routing, pollInterval2, milliseconds);
-			log.debug("Incrementing count");
-			throttler.incrementCount();
-			log.debug("Returning..");
-			return qr;
-		}
-		throw new MessageThrottled();
-	*/}
+	}
 }

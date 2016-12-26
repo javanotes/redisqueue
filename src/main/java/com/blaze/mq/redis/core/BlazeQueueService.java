@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.BoundListOperations;
@@ -25,9 +24,6 @@ import org.springframework.util.StringUtils;
 
 import com.blaze.mq.Data;
 import com.blaze.mq.QueueService;
-import com.blaze.mq.consume.AbstractQueueListener;
-import com.blaze.mq.consume.QueueListener;
-import com.blaze.mq.container.QueueContainer;
 import com.blaze.mq.redis.ops.DataAccessor;
 
 @Service
@@ -37,13 +33,9 @@ public class BlazeQueueService implements QueueService{
 	private static final Logger log = LoggerFactory.getLogger(BlazeQueueService.class);
 	
 	@Autowired
-	private QueueContainer container;
-	
-	@Autowired
 	private DataAccessor redisOps;
 	
-	@Value("${consumer.poll.await.millis:100}")
-	private long pollInterval;
+	
 	
 	@Override
 	public Integer size(String q) {
@@ -65,13 +57,12 @@ public class BlazeQueueService implements QueueService{
 	@PostConstruct
 	void init()
 	{
-		container.setPollInterval(pollInterval);
-		container.run();
+		
 	}
 	@PreDestroy
 	void destroy()
 	{
-		container.destroy();
+		
 	}
 
 	private static String prepareKey(String xchangeKey, String routeKey)
@@ -139,11 +130,11 @@ public class BlazeQueueService implements QueueService{
 		
 	}
 
-	@Override
+	/*@Override
 	public <T extends Data> void registerListener(QueueListener<T> ql) {
 		Assert.isInstanceOf(AbstractQueueListener.class, ql, "Not an instance of AbstractQueueListener");
 		container.register((AbstractQueueListener<T>) ql);
-	}
+	}*/
 
 	@Override
 	public <T extends Data> int add(List<T> msg) {

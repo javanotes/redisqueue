@@ -1,11 +1,13 @@
 package com.blaze.mq.consume;
 
 import com.blaze.mq.Data;
+import com.blaze.mq.container.QueueContainer;
 
 /**
  * Callback on a CMQ. Do NOT use this interface directly. Subclass from {@linkplain AbstractQueueListener}.
  * @author esutdal
  * @see AbstractQueueListener
+ * @see QueueContainer#register(QueueListener)
  * @param <T>
  */
 public interface QueueListener<T extends Data> extends Consumer<T> {
@@ -30,6 +32,11 @@ public interface QueueListener<T extends Data> extends Consumer<T> {
 	 * @return
 	 */
 	String exchange();
+	/**
+	 * The routing key (queue name) for the given exchange.
+	 * @return
+	 */
+	String routing();
 	/**
 	 * Max redelivery attempts.
 	 * @return

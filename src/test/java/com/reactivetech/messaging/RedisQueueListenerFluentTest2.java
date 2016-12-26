@@ -19,6 +19,7 @@ import com.blaze.mq.QueueService;
 import com.blaze.mq.consume.Consumer;
 import com.blaze.mq.consume.QueueListener;
 import com.blaze.mq.consume.QueueListenerBuilder;
+import com.blaze.mq.container.QueueContainer;
 import com.blaze.mq.data.TextData;
 import com.blaze.mq.redis.Blaze;
 
@@ -28,6 +29,9 @@ public class RedisQueueListenerFluentTest2 {
 
 	@Autowired
 	QueueService service;
+	@Autowired
+	QueueContainer container;
+	
 	static final Logger log = LoggerFactory.getLogger(RedisQueueListenerFluentTest2.class);
 	static String QNAME = "QWITHREDELIVERY";
 	static String PAYLOAD = "Message9.0x";
@@ -59,13 +63,25 @@ public class RedisQueueListenerFluentTest2 {
 				throw new IllegalArgumentException("Dummy exception raised");
 				
 			}
+
+			@Override
+			public void destroy() {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void init() {
+				// TODO Auto-generated method stub
+				
+			}
 		})
 		.route(QNAME)
 		.dataType(TextData.class)
 		.build();
 		
 		long start = System.currentTimeMillis();
-		service.registerListener(abs);
+		container.register(abs);
 		
 		try {
 			boolean b = l.await(10, TimeUnit.SECONDS);

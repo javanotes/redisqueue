@@ -29,4 +29,10 @@ public class SimpleQueueListener extends AbstractQueueListener<TextData> {
 		return QNAME;
 	}
 
+	@Override
+	public void init() {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

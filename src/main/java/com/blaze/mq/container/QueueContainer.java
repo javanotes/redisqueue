@@ -16,17 +16,17 @@
 package com.blaze.mq.container;
 
 import com.blaze.mq.Data;
-import com.blaze.mq.consume.AbstractQueueListener;
+import com.blaze.mq.consume.QueueListener;
 import com.blaze.mq.redis.core.QRecord;
 
 public interface QueueContainer extends Runnable{
 
 	/**
-	 * Register a queue callback listener.
+	 * Register a queue listener.
 	 * @param <T>
 	 * @param listener
 	 */
-	<T extends Data> void register(AbstractQueueListener<T> listener);
+	<T extends Data> void register(QueueListener<T> listener);
 	
 	/**
 	 * 
