@@ -37,7 +37,7 @@ import com.blaze.mq.redis.core.QRecord;
 public interface QueueService {
 
 	String DEFAULT_XCHANGE = "default";
-	
+		
 	/**
 	 * Adds new message to the default exchange and given routing key
 	 * 

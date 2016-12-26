@@ -41,6 +41,7 @@ import com.blaze.mq.container.QueueContainer;
  */
 //TODO: WIP
 @Component
+//@ConditionalOnProperty(name = "blaze.request-reply.enable", havingValue = "true")
 public class AsyncReplyReceiver {
 
 	@Autowired
@@ -285,7 +286,7 @@ public class AsyncReplyReceiver {
 		
 		container.register(listener);
 		
-		log.info("Async reply listener registered ..");
+		log.info("Async reply listener started ..");
 	}
 
 }

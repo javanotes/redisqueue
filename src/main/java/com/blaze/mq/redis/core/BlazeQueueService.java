@@ -1,13 +1,11 @@
 package com.blaze.mq.redis.core;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,18 +22,21 @@ import org.springframework.util.StringUtils;
 
 import com.blaze.mq.Data;
 import com.blaze.mq.QueueService;
+import com.blaze.mq.RequestReplyAble;
+import com.blaze.mq.redis.callback.AsyncReplyReceiver;
 import com.blaze.mq.redis.ops.DataAccessor;
 
 @Service
 @Qualifier("RMQ")
-public class BlazeQueueService implements QueueService{
+public class BlazeQueueService implements QueueService, RequestReplyAble{
 
 	private static final Logger log = LoggerFactory.getLogger(BlazeQueueService.class);
 	
 	@Autowired
 	private DataAccessor redisOps;
 	
-	
+	@Autowired
+	private AsyncReplyReceiver callback;
 	
 	@Override
 	public Integer size(String q) {
@@ -52,17 +53,6 @@ public class BlazeQueueService implements QueueService{
 		Assert.notEmpty(msg);
 		Assert.isTrue(StringUtils.hasText(msg.get(0).getDestination()), "Destination not provided");
 		return add0(msg, exchangeKey, msg.get(0).getDestination(), true);
-	}
-
-	@PostConstruct
-	void init()
-	{
-		
-	}
-	@PreDestroy
-	void destroy()
-	{
-		
 	}
 
 	private static String prepareKey(String xchangeKey, String routeKey)
@@ -161,6 +151,31 @@ public class BlazeQueueService implements QueueService{
 	@Override
 	public QRecord getNext(String xchng, String route, long await, TimeUnit unit) throws TimeoutException {
 		return redisOps.fetchHead(xchng, route, await, unit);
+	}
+
+	@Override
+	public <T extends Data> Data sendAndReceive(T request, long await, TimeUnit unit) {
+		if(request.getCorrelationID() == null)
+			request.setCorrelationID(UUID.randomUUID().toString());
+		
+		add(Arrays.asList(request));
+		Data d = callback.awaitAndGet(request.getCorrelationID(), await, unit);
+		return d;
+	}
+
+	@Override
+	public <T extends Data> String send(T request) {
+		if(request.getCorrelationID() == null)
+			request.setCorrelationID(UUID.randomUUID().toString());
+		add(Arrays.asList(request));
+		
+		return request.getCorrelationID();
+	}
+
+	@Override
+	public Data receive(String correlationId, long await, TimeUnit unit) {
+		Assert.notNull(correlationId);
+		return callback.awaitAndGet(correlationId, await, unit);
 	}
 
 }
