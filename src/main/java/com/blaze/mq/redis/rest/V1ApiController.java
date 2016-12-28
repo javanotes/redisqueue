@@ -1,6 +1,7 @@
 package com.blaze.mq.redis.rest;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -11,6 +12,7 @@ import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -43,6 +45,17 @@ public class V1ApiController {
 	private void init()
 	{
 		om = new ObjectMapper();
+		if (log.isInfoEnabled()) {
+			RequestMapping rm = AnnotationUtils.findAnnotation(V1ApiController.class, RequestMapping.class);
+			String pre = rm.path()[0];
+			for (Method m : V1ApiController.class.getMethods()) {
+				if (m.isAnnotationPresent(RequestMapping.class)) {
+					rm = m.getAnnotation(RequestMapping.class);
+					log.info("Mapping service url " + pre + rm.path()[0] + " with request type "
+							+ Arrays.toString(rm.method()) + " to method " + m);
+				}
+			} 
+		}
 	}
 	/**
 	 * 
@@ -53,7 +66,7 @@ public class V1ApiController {
 	 * @throws JsonProcessingException 
 	 */
 	@RequestMapping(method = {RequestMethod.POST}, path = "/add/{queue}")
-	public int addToQueue(@PathVariable("queue") String queue, @RequestBody String json) throws JsonProcessingException, IOException
+	public int addJsonToQueue(@PathVariable("queue") String queue, @RequestBody String json) throws JsonProcessingException, IOException
 	{
 		om.reader().readTree(json);
 		log.info("Adding to queue - ["+queue+"] "+json);
@@ -67,7 +80,7 @@ public class V1ApiController {
 	 * @throws JsonProcessingException 
 	 */
 	@RequestMapping(method = {RequestMethod.POST}, path = "/ingest/{queue}")
-	public void ingestToQueue(@PathVariable("queue") String queue, @RequestBody String jsonArray) throws JsonProcessingException, IOException
+	public void addJsonArrayToQueue(@PathVariable("queue") String queue, @RequestBody String jsonArray) throws JsonProcessingException, IOException
 	{
 		JsonNode root = om.reader().readTree(jsonArray);
 		Assert.isTrue(root.isArray(), "Not a JSON array");
