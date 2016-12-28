@@ -11,9 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import com.blaze.mq.QueueService;
-import com.blaze.mq.data.TextData;
-import com.blaze.mq.redis.Blaze;
+import com.reactivetechnologies.mq.QueueService;
+import com.reactivetechnologies.mq.data.TextData;
+import com.reactivetechnologies.mq.server.Blaze;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest(classes = {Blaze.class})

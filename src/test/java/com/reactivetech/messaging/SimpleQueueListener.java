@@ -3,8 +3,8 @@ package com.reactivetech.messaging;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.blaze.mq.consume.AbstractQueueListener;
-import com.blaze.mq.data.TextData;
+import com.reactivetechnologies.mq.consume.AbstractQueueListener;
+import com.reactivetechnologies.mq.data.TextData;
 
 public class SimpleQueueListener extends AbstractQueueListener<TextData> {
 
