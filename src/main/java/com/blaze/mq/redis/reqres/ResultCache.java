@@ -13,117 +13,109 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.blaze.mq.redis.callback;
+package com.blaze.mq.redis.reqres;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.annotation.PostConstruct;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import com.blaze.mq.Data;
-import com.blaze.mq.consume.Consumer;
-import com.blaze.mq.consume.QueueListener;
-import com.blaze.mq.consume.QueueListenerBuilder;
-import com.blaze.mq.container.QueueContainer;
 /**
- * Asynchronous reply queue listener. This component should be used to query for a response {@linkplain Data} in a request-reply
- * semantic. Internally uses a {@linkplain ConcurrentHashMap} to cache the response atomically.
+ * Reply cache offering set/get operations. The get operations can block. Internally uses {@linkplain ConcurrentHashMap} for concurrent operations.
  * @author esutdal
  *
  */
-//TODO: WIP
-@Component
-//@ConditionalOnProperty(name = "blaze.request-reply.enable", havingValue = "true")
-public class AsyncReplyReceiver {
-
-	@Autowired
-	private QueueContainer container;
-	@Autowired
-	private DiskCacheLoader diskCache;
+public class ResultCache implements Closeable{
+	
+	private DiskCacheLoader diskCache = null;
+	public ResultCache() {
+		
+	}
+	/**
+	 * If enabled, will flush unconsumed {@linkplain Data} to disk on closing. Default disabled.
+	 * @param dir
+	 * @param file
+	 */
+	void enableDiskFlush(String dir, String file)
+	{
+		diskCache = new DiskCacheLoader(dir, file);
+		diskCache.loadFromDisk();
+	}
 	/**
 	 * The reply listener class.
 	 * @author esutdal
 	 *
 	 */
-	private final class ReplyListener implements Consumer<Data> {
-		/**
-		 * Put data to the reply cache atomically.
-		 * @param m
-		 * @param corrId
-		 * @param o
-		 */
-		private void putToReplyCache(Data m, String corrId, Object o)
-		{
-			try 
-			{
 
-				if ((resultCache.putIfAbsent(corrId, m)) != null) 
-				{
-					//there is a thread waiting for notification which has set the dummy data
-					boolean replaced = resultCache.replace(corrId, dummyData, m);
-					if (!replaced) {
-						synchronized (o) {
-							//the put will always be true, since the waiting thread will enter the monitor only if it 
-							//has successfully removed the dummy data
-							Data d = resultCache.putIfAbsent(corrId, m);
-							Assert.isNull(d, "Dummy was not removed when result is placed");
-							o.notify();
-						}
+	/**
+	 * Put data to the reply cache atomically.
+	 * @param m
+	 * @param corrId
+	 * @param o
+	 */
+	private void putToCache(Data m, String corrId, Object o)
+	{
+		try 
+		{
+
+			if ((resultCache.putIfAbsent(corrId, m)) != null) 
+			{
+				//there is a thread waiting for notification which has set the dummy data
+				boolean replaced = resultCache.replace(corrId, dummyData, m);
+				if (!replaced) {
+					synchronized (o) {
+						//the put will always be true, since the waiting thread will enter the monitor only if it 
+						//has successfully removed the dummy data
+						Data d = resultCache.putIfAbsent(corrId, m);
+						Assert.isNull(d, "Dummy was not removed when result is placed");
+						o.notify();
 					}
 				}
+			}
 
-			} finally {
-				waitMap.remove(corrId, o);
-			}
+		} finally {
+			waitMap.remove(corrId, o);
 		}
-		@Override
-		public void onMessage(Data m) throws Exception 
-		{
-			if(destroyed.compareAndSet(false, false)) 
-			{
-				String corrId = m.getCorrelationID();
-				waitMap.putIfAbsent(corrId, new Object());
-				Object o = waitMap.get(corrId);
-				
-				putToReplyCache(m, corrId, o);
-			}
-			else
-			{
-				log.warn("Listener is shutting down. Dumping message with corrId => "+m.getCorrelationID());
-				diskCache.dumpToDisk(m);
-			}
-			
-		}
-
-		@Override
-		public void destroy() {
-			destroyed.compareAndSet(false, true);
-			dumpResultCache();
-		}
-		@Override
-		public void init() {
-			diskCache.loadFromDisk();
-		}
-	}
-	/**
-	 * The common reply queue, for all request-response invocations.
-	 * 
-	 */
-	public static final String ASYNC_REPLYQ = "COMMON_REPLYQ";
-	private QueueListener<Data> listener;
-	private static final Logger log = LoggerFactory.getLogger(AsyncReplyReceiver.class);
-	public AsyncReplyReceiver() {
-		
 	}
 	
+	private Object initSynchronized(String corrId)
+	{
+		waitMap.putIfAbsent(corrId, new Object());
+		return waitMap.get(corrId);
+	}
+	/**
+	 * Cache set operation.
+	 * @param m
+	 * @throws Exception
+	 */
+	public void set(Data m) 
+	{
+		if(destroyed.compareAndSet(false, false)) 
+		{
+			String corrId = m.getCorrelationID();
+			Object o = initSynchronized(corrId);
+			
+			putToCache(m, corrId, o);
+		}
+		else
+		{
+			if (diskCache != null) {
+				log.warn("Listener is shutting down. Dumping message with corrId => " + m.getCorrelationID());
+				diskCache.dumpToDisk(m);
+			}
+		}
+		
+	}
+
+	private static final Logger log = LoggerFactory.getLogger(DefaultRequestReplyReceiver.class);
+		
 	private ConcurrentMap<String, Object> waitMap = new ConcurrentHashMap<>();
 	private ConcurrentMap<String, Data> resultCache = new ConcurrentHashMap<>();
 	
@@ -135,47 +127,28 @@ public class AsyncReplyReceiver {
 		private static final long serialVersionUID = 1L;
 	};
 	/**
-	 * Await and get uninterruptibly.
+	 * Await and get.
 	 * @param corrId
 	 * @param maxWait
 	 * @param unit
 	 * @return The reply {@linkplain Data} if available, or null.
+	 * @throws InterruptedException 
 	 */
-	public Data awaitAndGet(String corrId, long maxWait, TimeUnit unit)
+	public Data get(String corrId, long maxWait, TimeUnit unit) throws InterruptedException
 	{
 		Assert.isTrue(destroyed.compareAndSet(false, false), "Rejected on shutting down");
-		Assert.notNull(corrId);
-		Assert.isTrue(maxWait > 0, "Expectings maxWait > 0");
-		try {
-			return get0(corrId, maxWait, unit);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-		}
-		return null;
-	}
-	/**
-	 * Await and get. This will block indefinitely.
-	 * @param corrId
-	 * @return The reply {@linkplain Data} if available, or null.
-	 * @throws InterruptedException
-	 */
-	public Data awaitAndGet(String corrId) throws InterruptedException
-	{
-		Assert.isTrue(destroyed.compareAndSet(false, false), "Rejected on shutting down");
-		Assert.notNull(corrId);
-		return get0(corrId, 0, TimeUnit.MILLISECONDS);
+		return get0(corrId, maxWait, unit);
 	}
 	/**
 	 * Get and returns immediately.
 	 * @param corrId
 	 * @return The reply {@linkplain Data} if available, or null.
 	 */
-	public Data get(String corrId)
+	public Data getNow(String corrId)
 	{
 		Assert.isTrue(destroyed.compareAndSet(false, false), "Rejected on shutting down");
-		Assert.notNull(corrId);
 		try {
-			return get0(corrId, -1, TimeUnit.DAYS);
+			return get0(corrId, -1, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
@@ -272,21 +245,15 @@ public class AsyncReplyReceiver {
 			}
 		}
 	}
-	@PostConstruct
-	private void init()
-	{
-		listener = new QueueListenerBuilder()
-		.concurrency(Runtime.getRuntime().availableProcessors())
-		.consumer(new ReplyListener())
-		.sharedPool(false)
-		.identifier("AsyncListener")
-		.route(ASYNC_REPLYQ)
-		.dataType(Data.class)
-		.build();
-		
-		container.register(listener);
-		
-		log.info("Async reply listener started ..");
-	}
 
+	@Override
+	public void close() throws IOException {
+		destroyed.compareAndSet(false, true);
+		if (diskCache != null) {
+			dumpResultCache();
+			diskCache.close();
+		}
+		
+	}
+	
 }

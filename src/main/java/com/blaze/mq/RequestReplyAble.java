@@ -16,7 +16,11 @@
 package com.blaze.mq;
 
 import java.util.concurrent.TimeUnit;
-
+/**
+ * Synchronous execution involving a request and reply queue, correlated by a correlationId.
+ * @author esutdal
+ *
+ */
 public interface RequestReplyAble {
 
 	/**

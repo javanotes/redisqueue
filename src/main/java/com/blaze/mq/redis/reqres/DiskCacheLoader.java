@@ -13,26 +13,45 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.blaze.mq.redis.callback;
+package com.blaze.mq.redis.reqres;
+
+import java.io.Closeable;
+import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import com.blaze.mq.Data;
 //TODO: Disk cache loader
-@Component
-class DiskCacheLoader {
+
+class DiskCacheLoader implements Closeable{
 
 	private static final Logger log = LoggerFactory.getLogger(DiskCacheLoader.class);
-	
+	private final BasicDurableMap bdMap;
+	/**
+	 * 
+	 * @param dir
+	 * @param fileName
+	 */
+	public DiskCacheLoader(String dir, String fileName) {
+		super();
+		this.bdMap = new BasicDurableMap(dir, fileName);
+	}
 	public void loadFromDisk() {
 		// TODO Auto-generated method stub
 		log.info("TODO: loading from disk");
 	}
+	public void delete()
+	{
+		
+	}
 	public void dumpToDisk(Data m) {
 		// TODO Auto-generated method stub
 		log.warn("TODO dump to disk: "+m);
+	}
+	@Override
+	public void close() throws IOException {
+		bdMap.close();
 	}
 
 }

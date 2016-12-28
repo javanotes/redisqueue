@@ -38,12 +38,12 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -52,7 +52,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
 /**
- * @Experimental A local disk persistence system for storing key value records.
+ * A local disk persistence system for storing key value records.
  *               The key is to be a UTF8 encoded string, and values are
  *               serialized bytes. Can be used as a simple file backed map data
  *               structure.
@@ -69,7 +69,7 @@ class MappedFile implements Closeable {
 	private RandomAccessFile indexFile;
 	private FileChannel dbChannel;
 	final ReadWriteLock fileLock = new ReentrantReadWriteLock();
-	private ScheduledExecutorService compactor;
+	//private ScheduledExecutorService compactor;
 	public static final int DEFAULT_CACHE_SIZE = 1000;
 
 	/**
@@ -113,7 +113,7 @@ class MappedFile implements Closeable {
 			log.warn("* COMPACTION NOT SUPPORTED *");
 		}
 	}
-
+	private Path dataPath, idxPath;
 	/**
 	 * 
 	 * @param cacheSize
@@ -143,6 +143,9 @@ class MappedFile implements Closeable {
 			}
 
 		};
+		
+		dataPath = dbFile.toPath();
+		idxPath = idxFile.toPath();
 	}
 
 	private Long removeKey(String key) throws IOException {
@@ -353,20 +356,50 @@ class MappedFile implements Closeable {
 		return ifp;
 	}
 
+	private volatile boolean closed;
 	@Override
 	public void close() throws IOException {
-		if (compactor != null) {
+		/*if (compactor != null) {
 			compactor.shutdown();
 			try {
 				compactor.awaitTermination(10, TimeUnit.SECONDS);
 			} catch (InterruptedException e) {
 			}
-		}
+		}*/
 		getIndexFile().close();
 		getDataFile().close();
 		dbChannel.close();
+		
+		setClosed(true);
 	}
-
+	/**
+	 * Delete this mapped file and any related data structures.
+	 * The physical file will be deleted and all caches will be emptied.
+	 */
+	public void destroy()
+	{
+		try {
+			close();
+		} catch (IOException e) {
+			
+		}
+		
+		try {
+			Files.delete(idxPath);
+		} catch (IOException e) {
+			
+		}
+		try {
+			Files.delete(dataPath);
+		} catch (IOException e) {
+			
+		}
+		
+		dataMap.clear();
+		dataMap = null;
+		indexMap.clear();
+		indexMap = null;
+	}
 	/**
 	 * Scans the index file to check if the key is present. Null key not
 	 * supported
@@ -461,6 +494,14 @@ class MappedFile implements Closeable {
 
 	private void setDataFile(RandomAccessFile dataFile) {
 		this.dataFile = dataFile;
+	}
+
+	public boolean isClosed() {
+		return closed;
+	}
+
+	private void setClosed(boolean closed) {
+		this.closed = closed;
 	}
 
 }

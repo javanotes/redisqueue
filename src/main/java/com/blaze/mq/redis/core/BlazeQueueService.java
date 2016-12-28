@@ -1,6 +1,5 @@
 package com.blaze.mq.redis.core;
 
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -22,21 +21,16 @@ import org.springframework.util.StringUtils;
 
 import com.blaze.mq.Data;
 import com.blaze.mq.QueueService;
-import com.blaze.mq.RequestReplyAble;
-import com.blaze.mq.redis.callback.AsyncReplyReceiver;
 import com.blaze.mq.redis.ops.DataAccessor;
 
 @Service
 @Qualifier("RMQ")
-public class BlazeQueueService implements QueueService, RequestReplyAble{
+public class BlazeQueueService implements QueueService{
 
 	private static final Logger log = LoggerFactory.getLogger(BlazeQueueService.class);
 	
 	@Autowired
 	private DataAccessor redisOps;
-	
-	@Autowired
-	private AsyncReplyReceiver callback;
 	
 	@Override
 	public Integer size(String q) {
@@ -99,7 +93,7 @@ public class BlazeQueueService implements QueueService, RequestReplyAble{
 
 	@Override
 	public void clear(String xchangeKey, String routeKey) {
-		log.warn("This is an expensive operation since Redis does not provide an explicit 'clear' operation!");
+		log.warn("'clear' is an expensive operation since Redis does not provide an explicit operation");
 		long llen = size(xchangeKey, routeKey);
 		if(llen > 0)
 		{
@@ -119,12 +113,6 @@ public class BlazeQueueService implements QueueService, RequestReplyAble{
 		}
 		
 	}
-
-	/*@Override
-	public <T extends Data> void registerListener(QueueListener<T> ql) {
-		Assert.isInstanceOf(AbstractQueueListener.class, ql, "Not an instance of AbstractQueueListener");
-		container.register((AbstractQueueListener<T>) ql);
-	}*/
 
 	@Override
 	public <T extends Data> int add(List<T> msg) {
@@ -151,31 +139,6 @@ public class BlazeQueueService implements QueueService, RequestReplyAble{
 	@Override
 	public QRecord getNext(String xchng, String route, long await, TimeUnit unit) throws TimeoutException {
 		return redisOps.fetchHead(xchng, route, await, unit);
-	}
-
-	@Override
-	public <T extends Data> Data sendAndReceive(T request, long await, TimeUnit unit) {
-		if(request.getCorrelationID() == null)
-			request.setCorrelationID(UUID.randomUUID().toString());
-		
-		add(Arrays.asList(request));
-		Data d = callback.awaitAndGet(request.getCorrelationID(), await, unit);
-		return d;
-	}
-
-	@Override
-	public <T extends Data> String send(T request) {
-		if(request.getCorrelationID() == null)
-			request.setCorrelationID(UUID.randomUUID().toString());
-		add(Arrays.asList(request));
-		
-		return request.getCorrelationID();
-	}
-
-	@Override
-	public Data receive(String correlationId, long await, TimeUnit unit) {
-		Assert.notNull(correlationId);
-		return callback.awaitAndGet(correlationId, await, unit);
 	}
 
 }

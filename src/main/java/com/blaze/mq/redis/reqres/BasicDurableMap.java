@@ -26,14 +26,14 @@ SOFTWARE.
 *
 * ============================================================================
 */
-package com.blaze.mq.redis.callback;
+package com.blaze.mq.redis.reqres;
 
 import com.blaze.mq.disk.AbstractDurableMap;
 
 /**
  * 
  */
-public class BasicDurableMap extends AbstractDurableMap<String, byte[]> {
+class BasicDurableMap extends AbstractDurableMap<String, byte[]> {
 
   public BasicDurableMap(String dir, String fileName) {
     super(dir, fileName);

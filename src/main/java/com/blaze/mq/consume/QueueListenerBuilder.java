@@ -1,5 +1,6 @@
 package com.blaze.mq.consume;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.Assert;
 
 import com.blaze.mq.Data;
@@ -8,6 +9,7 @@ import com.blaze.mq.Data;
  * @author esutdal
  *
  */
+@ConfigurationProperties(prefix = "consumer.config")
 public class QueueListenerBuilder {
 
 	private int concurrency = -1;

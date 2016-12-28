@@ -51,6 +51,15 @@ public abstract class AbstractDurableMap<K,V> implements Map<K, V>, Closeable {
     }
   }
   /**
+   * Delete the underlying mapped file and any related data structures. The physical file will be 
+   * deleted and all caches will be emptied.
+   * @see MappedFile#destroy()
+   */
+  public void destroy()
+  {
+	  file.destroy();
+  }
+  /**
    * Generic serialization scheme for key.
    * @param key
    * @return
