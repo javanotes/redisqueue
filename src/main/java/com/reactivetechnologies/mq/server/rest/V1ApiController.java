@@ -12,6 +12,7 @@ import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.Assert;
@@ -32,6 +33,7 @@ import com.reactivetechnologies.mq.data.TextData;
 
 @RestController
 @RequestMapping("/rmq/api")
+@ConditionalOnProperty(name = "blaze.rest.enable", havingValue = "true")
 public class V1ApiController {
 
 	public static final String BADREQ_INV_JSON = "Not a valid JSON";
