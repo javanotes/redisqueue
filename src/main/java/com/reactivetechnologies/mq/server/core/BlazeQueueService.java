@@ -53,6 +53,17 @@ public class BlazeQueueService implements QueueService{
 	{
 		return DataAccessor.prepareListKey(xchangeKey, routeKey);
 	}
+	
+	private static QRecord dataToRecord(Data t, String xchangeKey, String routeKey)
+	{
+		QRecord qr = new QRecord(t);
+		qr.getKey().setExchange(xchangeKey);
+		qr.getKey().setRoutingKey(routeKey);
+		qr.getKey().setTimeuid(UUID.randomUUID());
+		qr.setT0TS(new Date());
+		
+		return qr;
+	}
 	private <T extends Data> int add0(List<T> msg, String xchangeKey, String routeKey, boolean getcount)
 	{
 		QRecord qr;
@@ -61,19 +72,14 @@ public class BlazeQueueService implements QueueService{
 			start = System.currentTimeMillis();
 			log.debug(">>> ingestEntitiesAsync: Starting ingestion batch <<<");
 		}
-		BoundListOperations<String, QRecord> listOps = listOperations(xchangeKey, routeKey);
 		QRecord[] records = new QRecord[msg.size()];
 		int i = 0;
 		for (Data t : msg) 
 		{
-			qr = new QRecord(t);
-			qr.getKey().setExchange(xchangeKey);
-			qr.getKey().setRoutingKey(routeKey);
-			qr.getKey().setTimeuid(UUID.randomUUID());
-			qr.setT0TS(new Date());
+			qr = dataToRecord(t, xchangeKey, routeKey);
 			records[i++] = qr;
 		}
-		listOps.rightPushAll(records);
+		redisOps.enqueue(prepareKey(xchangeKey, routeKey), records);
 		
 		long time = System.currentTimeMillis() - start;
 		long secs = TimeUnit.MILLISECONDS.toSeconds(time);
@@ -138,7 +144,7 @@ public class BlazeQueueService implements QueueService{
 
 	@Override
 	public QRecord getNext(String xchng, String route, long await, TimeUnit unit) throws TimeoutException {
-		return redisOps.fetchHead(xchng, route, await, unit);
+		return redisOps.dequeue(xchng, route, await, unit);
 	}
 
 }

@@ -4,9 +4,12 @@ import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
 import java.util.concurrent.ForkJoinWorkerThread;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -39,14 +42,14 @@ import com.reactivetechnologies.mq.server.throttle.ConsumerThrottlerFactoryBean;
 public class BlazeQueueContainer implements Runnable, QueueContainer{
 
 	private static final Logger log = LoggerFactory.getLogger(BlazeQueueContainer.class);
-	
+	private ExecutorService asyncTasks;
 	@Autowired
 	private DataAccessor redisOps;
 	
-	private ForkJoinPool threadPool;
+	private ExecutorService threadPool;
 	@Value("${consumer.worker.thread:0}")
 	private int fjWorkers;
-	private List<ForkJoinPool> threadPools;
+	private List<ExecutorService> threadPools;
 	private static ForkJoinPool newFJPool(int coreThreads, String name)
 	{
 		return new ForkJoinPool(coreThreads, new ForkJoinWorkerThreadFactory() {
@@ -80,14 +83,25 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 		threadPool = newFJPool(coreThreads, "BlazeSharedPool");
 		threadPools.add(threadPool);
 		
+		asyncTasks = Executors.newCachedThreadPool(new ThreadFactory() {
+			int n=1;
+			@Override
+			public Thread newThread(Runnable arg0) {
+				Thread t = new Thread(arg0, "container-async-thread-"+(n++));
+				return t;
+			}
+		});
+		threadPools.add(asyncTasks);
+		
 		running = true;
-		log.info("Container initialized with parallelism "+threadPool.getParallelism() + ", coreThreads "+coreThreads);
+		log.info("Container initialized with parallelism "+((ForkJoinPool) threadPool).getParallelism() + ", coreThreads "+coreThreads);
 		
 		run();
 	}
+	
 	private void shutdownPools()
 	{
-		for (ForkJoinPool pool : threadPools) {
+		for (ExecutorService pool : threadPools) {
 			pool.shutdown();
 			try {
 				pool.awaitTermination(10, TimeUnit.SECONDS);
@@ -173,7 +187,7 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 				runnable.setThrottleTps(throttleTps);
 				log.debug("SUBMITTING TASK FOR ------------------- "+task);
 				if(task.useSharedPool())
-					threadPool.execute(runnable);
+					((ForkJoinPool) threadPool).execute(runnable);
 				else
 				{
 					String name = task.identifier().length() > 20 ? task.identifier().substring(0, 20) : task.identifier();
@@ -181,8 +195,7 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 					pool.execute(runnable);
 					threadPools.add(pool);
 				}
-				//threadPool.submit(runnable);
-				//threadPool.invoke(runnable);
+				
 			} 
 			catch (Exception e) {
 				throw new BlazeInternalError("", e);
@@ -195,8 +208,16 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 	 */
 	@Override
 	public void commit(QRecord qr, boolean success) {
-		String preparedKey = DataAccessor.prepareHashKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
-		redisOps.endCommit(qr, preparedKey);
+		String preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
+		//this can be made async
+		asyncTasks.submit(new Runnable() {
+			
+			@Override
+			public void run() {
+				redisOps.endCommit(qr, preparedKey);
+			}
+		});
+		
 		if(!success)
 		{
 			//message being lost
@@ -217,10 +238,10 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 	 */
 	@Override
 	public void rollback(QRecord qr) {
-		String preparedKey = DataAccessor.prepareHashKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
+		String preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
 		redisOps.endCommit(qr, preparedKey);
 		preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
-		redisOps.enqueueHead(qr, preparedKey);
+		redisOps.reEnqueue(qr, preparedKey);
 	}
 	@Value("${consumer.poll.await.millis:100}")
 	private long pollInterval;
@@ -241,10 +262,18 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 	public void setPollInterval(long pollInterval) {
 		this.pollInterval = pollInterval;
 	}
-
+	/**
+	 * Fetch head.
+	 * @param exchange
+	 * @param routing
+	 * @param pollInterval2
+	 * @param milliseconds
+	 * @return
+	 * @throws TimeoutException
+	 */
 	QRecord fetchHead(String exchange, String routing, long pollInterval2, TimeUnit milliseconds) throws TimeoutException
 	{
-		QRecord qr = redisOps.fetchHead(exchange, routing, pollInterval2, milliseconds);
+		QRecord qr = redisOps.dequeue(exchange, routing, pollInterval2, milliseconds);
 		return qr;
 	}
 }
