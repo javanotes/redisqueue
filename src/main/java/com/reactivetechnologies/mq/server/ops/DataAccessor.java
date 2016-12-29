@@ -33,7 +33,9 @@ import com.reactivetechnologies.mq.server.core.QRecord;
 @Component
 public class DataAccessor {
 
-	public static final String RPOPLPUSH_DESTN_SUFFIX = "$1";
+	public static final String RPOPLPUSH_DESTN_SUFFIX = "$INPROC";
+	public static final String RPOPLPUSH_DESTN_SET = RPOPLPUSH_DESTN_SUFFIX + "-SET";
+	
 	private static final Logger log = LoggerFactory.getLogger(DataAccessor.class);
 	/*
 	 * Note: On inspecting the Spring template bound*Ops() in Spring code, 
@@ -68,17 +70,18 @@ public class DataAccessor {
 		hashOps.put(qr.getKey().getTimeuid().toString(), qr);
 	*/}
 	/**
-	 * Remove the dequeued item from SINK queue.
+	 * Remove the dequeued item from SINK queue. This operation is relatively costly
+	 * with complexity of O(n).
 	 * @param qr
 	 * @param key
 	 */
 	public void endCommit(QRecord qr, String key) {
-		BoundListOperations<String, QRecord> listOps = redisTemplate.boundListOps(key);
-		listOps.remove(1, qr);
-		/*
-		BoundHashOperations<String, String, QRecord> hashOps = redisTemplate.boundHashOps(key);
-		hashOps.delete(qr.getKey().getTimeuid().toString());
-	*/}
+		BoundListOperations<String, QRecord> listOps = redisTemplate.boundListOps(prepareInProcKey(key));
+		//LREM count < 0: Remove elements equal to value moving from tail to head.
+		//since we are pushing from left, the item will be moving towards tail. this operation
+		//has a complexity of O(N), so we should try to minimize N
+		listOps.remove(-1, qr);
+	}
 	/**
 	 * Enqueue item by head of the SOURCE queue from the destination, for message re-delivery.
 	 * @param qr
@@ -122,6 +125,26 @@ public class DataAccessor {
 	{
 		return new StringBuilder().append(exchange).append("-").append(key).toString();
 	}
+	/**
+	 * Prepare the key for the surrogate SINK queue.
+	 * @param exchange
+	 * @param key
+	 * @return
+	 */
+	public static String prepareInProcKey(String exchange, String key)
+	{
+		String preparedKey = prepareListKey(exchange, key);
+		return prepareInProcKey(preparedKey);
+	}
+	/**
+	 * 
+	 * @param preparedKey
+	 * @return
+	 */
+	private static String prepareInProcKey(String preparedKey)
+	{
+		return preparedKey + RPOPLPUSH_DESTN_SUFFIX;
+	}
 	
 	@Autowired
 	private BlazeRedisTemplate redisTemplate;
@@ -142,9 +165,9 @@ public class DataAccessor {
 		log.debug(">>>>>>>>>> Start fetchHead <<<<<<<<< ");
 		log.debug("route -> " + route + "\tawait: " + await + " unit: " + unit);
 		String preparedKey = prepareListKey(xchng, route);
-
-		QRecord qr = redisTemplate.opsForList().rightPopAndLeftPush(preparedKey, preparedKey + RPOPLPUSH_DESTN_SUFFIX,
-				await, unit);
+		String inprocKey = prepareInProcKey(xchng, route);
+		
+		QRecord qr = redisTemplate.opsForList().rightPopAndLeftPush(preparedKey, inprocKey, await, unit);
 
 		if (qr != null) {
 			return qr;

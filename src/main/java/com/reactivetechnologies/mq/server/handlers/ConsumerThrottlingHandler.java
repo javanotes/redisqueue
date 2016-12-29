@@ -13,9 +13,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.reactivetechnologies.mq.server.throttle;
+package com.reactivetechnologies.mq.server.handlers;
 
-public interface ConsumerThrottler {
+public interface ConsumerThrottlingHandler {
 	/**
 	 * Get the current count.
 	 * @return

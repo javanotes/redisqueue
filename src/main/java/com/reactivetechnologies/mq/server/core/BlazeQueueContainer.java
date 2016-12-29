@@ -29,6 +29,7 @@ import com.reactivetechnologies.mq.common.BlazeInternalError;
 import com.reactivetechnologies.mq.consume.AbstractQueueListener;
 import com.reactivetechnologies.mq.consume.QueueListener;
 import com.reactivetechnologies.mq.container.QueueContainer;
+import com.reactivetechnologies.mq.server.handlers.DeadLetterHandler;
 import com.reactivetechnologies.mq.server.ops.DataAccessor;
 import com.reactivetechnologies.mq.server.throttle.ConsumerThrottlerFactoryBean;
 /**
@@ -211,7 +212,6 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 		String preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
 		//this can be made async
 		asyncTasks.submit(new Runnable() {
-			
 			@Override
 			public void run() {
 				redisOps.endCommit(qr, preparedKey);
@@ -224,14 +224,14 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 			recordDeadLetter(qr);
 		}
 	}
+	@Autowired
+	private DeadLetterHandler deadLetterService;
 	/**
 	 * TODO: Handle messages discarded after retry limit exceeded or expiration or unknown cause.
 	 * @param qr
 	 */
 	protected void recordDeadLetter(QRecord qr) {
-		log.warn("+----------------------+");
-		log.warn("|TODO:DEAD_LETTER_NOTIF|");
-		log.warn("+----------------------+");
+		deadLetterService.handle(qr);
 	}
 	/* (non-Javadoc)
 	 * @see com.reactivetech.messaging.cmq.core.IQueueListenerContainer#rollback(com.reactivetech.messaging.cmq.dao.QRecord)
@@ -240,7 +240,6 @@ public class BlazeQueueContainer implements Runnable, QueueContainer{
 	public void rollback(QRecord qr) {
 		String preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
 		redisOps.endCommit(qr, preparedKey);
-		preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
 		redisOps.reEnqueue(qr, preparedKey);
 	}
 	@Value("${consumer.poll.await.millis:100}")

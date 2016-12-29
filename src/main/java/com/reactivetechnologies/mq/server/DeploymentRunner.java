@@ -31,9 +31,9 @@ import com.reactivetechnologies.mq.consume.QueueListener;
 import com.reactivetechnologies.mq.consume.QueueListenerBuilder;
 import com.reactivetechnologies.mq.container.QueueContainer;
 @Component
-public class BlazeDeploymentRunner implements CommandLineRunner {
+public class DeploymentRunner implements CommandLineRunner {
 
-	private static final Logger log = LoggerFactory.getLogger(BlazeDeploymentRunner.class);
+	private static final Logger log = LoggerFactory.getLogger(DeploymentRunner.class);
 
 	@Value("${consumer.deploy.dir:}")
 	private String deployDir;

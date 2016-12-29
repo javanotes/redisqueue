@@ -11,7 +11,7 @@ import com.reactivetechnologies.mq.Data;
 import com.reactivetechnologies.mq.common.BlazingException;
 import com.reactivetechnologies.mq.consume.AbstractQueueListener;
 import com.reactivetechnologies.mq.container.QueueContainerTask;
-import com.reactivetechnologies.mq.server.throttle.ConsumerThrottler;
+import com.reactivetechnologies.mq.server.handlers.ConsumerThrottlingHandler;
 import com.reactivetechnologies.mq.server.throttle.MessageThrottled;
 /**
  * The task class that works in a work-stealing thread pool.
@@ -24,7 +24,7 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 	private final int concurrency;
 	private final AbstractQueueListener<T> consumer;
 	private final BlazeQueueContainer container;
-	private final ConsumerThrottler throttler;
+	private final ConsumerThrottlingHandler throttler;
 	private int throttleTps;
 	public int getThrottleTps() {
 		return throttleTps;
@@ -38,7 +38,7 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 	 * @param <T>
 	 * @param ql
 	 */
-	public BlazeQueueContainerTask(AbstractQueueListener<T> ql, BlazeQueueContainer container, ConsumerThrottler throttler) {
+	public BlazeQueueContainerTask(AbstractQueueListener<T> ql, BlazeQueueContainer container, ConsumerThrottlingHandler throttler) {
 		this(ql, ql.concurrency(), container, throttler);
 	}
 	/**
@@ -47,7 +47,7 @@ class BlazeQueueContainerTask<T extends Data> extends RecursiveAction implements
 	 * @param ql
 	 * @param concurrency
 	 */
-	private BlazeQueueContainerTask(AbstractQueueListener<T> ql, int concurrency, BlazeQueueContainer container, ConsumerThrottler throttler) {
+	private BlazeQueueContainerTask(AbstractQueueListener<T> ql, int concurrency, BlazeQueueContainer container, ConsumerThrottlingHandler throttler) {
 		this.concurrency = concurrency;
 		this.consumer = ql;
 		this.container = container;

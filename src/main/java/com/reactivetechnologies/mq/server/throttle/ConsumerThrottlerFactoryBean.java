@@ -23,6 +23,8 @@ import javax.annotation.PreDestroy;
 
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.stereotype.Component;
+
+import com.reactivetechnologies.mq.server.handlers.ConsumerThrottlingHandler;
 @Component
 public class ConsumerThrottlerFactoryBean implements FactoryBean<DefaultConsumerThrottler> {
 
@@ -47,7 +49,7 @@ public class ConsumerThrottlerFactoryBean implements FactoryBean<DefaultConsumer
 	 * @return
 	 * @throws Exception
 	 */
-	public ConsumerThrottler getObject(long throttlerPeriod, boolean enabled) throws Exception {
+	public ConsumerThrottlingHandler getObject(long throttlerPeriod, boolean enabled) throws Exception {
 		DefaultConsumerThrottler cthrot =  new DefaultConsumerThrottler();
 		cthrot.setEnabled(enabled);
 		cthrot.setThrottlerPeriod(throttlerPeriod);

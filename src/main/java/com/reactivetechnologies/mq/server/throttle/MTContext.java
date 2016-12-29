@@ -17,9 +17,11 @@ package com.reactivetechnologies.mq.server.throttle;
 
 import org.apache.commons.chain.impl.ContextBase;
 
+import com.reactivetechnologies.mq.server.handlers.ConsumerThrottlingHandler;
+
 class MTContext extends ContextBase {
 
-	public MTContext(int throttlingTPS, ConsumerThrottler throttler) {
+	public MTContext(int throttlingTPS, ConsumerThrottlingHandler throttler) {
 		super();
 		this.throttlingTPS = throttlingTPS;
 		this.throttler = throttler;
@@ -32,7 +34,7 @@ class MTContext extends ContextBase {
 
 	private boolean throttle;
 	
-	private final ConsumerThrottler throttler;
+	private final ConsumerThrottlingHandler throttler;
 	public int getThrottlingTPS() {
 		return throttlingTPS;
 	}
@@ -48,7 +50,7 @@ class MTContext extends ContextBase {
 	}
 
 
-	public ConsumerThrottler getThrottler() {
+	public ConsumerThrottlingHandler getThrottler() {
 		return throttler;
 	}
 
