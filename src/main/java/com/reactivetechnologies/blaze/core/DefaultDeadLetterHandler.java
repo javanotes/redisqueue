@@ -13,27 +13,21 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.reactivetechnologies.mq.container;
+package com.reactivetechnologies.blaze.core;
 
-import java.util.concurrent.TimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.reactivetechnologies.blaze.handlers.DeadLetterHandler;
 import com.reactivetechnologies.blaze.struct.QRecord;
-import com.reactivetechnologies.blaze.throttle.MessageThrottled;
 
-public interface QueueContainerTask {
-
-	/**
-	 * Fire callback on consumer.
-	 * @param qr
-	 */
-	void fireOnMessage(QRecord qr);
-
-	/**
-	 * Perform a blocking fetch for queue head.
-	 * @return
-	 * @throws TimeoutException
-	 * @throws MessageThrottled 
-	 */
-	QRecord fetchHead() throws TimeoutException, MessageThrottled;
+public class DefaultDeadLetterHandler implements DeadLetterHandler {
+	private static final Logger log = LoggerFactory.getLogger(DefaultDeadLetterHandler.class);
+	@Override
+	public void handle(QRecord letter) {
+		log.warn("+----------------------+");
+		log.warn("|TODO:DEAD_LETTER_NOTIF|");
+		log.warn("+----------------------+");
+	}
 
 }

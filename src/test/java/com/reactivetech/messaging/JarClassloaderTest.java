@@ -27,8 +27,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.ResourceUtils;
 
+import com.reactivetechnologies.blaze.Blaze;
 import com.reactivetechnologies.mq.common.JarClassLoader;
-import com.reactivetechnologies.mq.server.Blaze;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest(classes = Blaze.class)

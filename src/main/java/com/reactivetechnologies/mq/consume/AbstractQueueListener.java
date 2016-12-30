@@ -37,13 +37,13 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.reactivetechnologies.blaze.struct.QRecord;
 import com.reactivetechnologies.mq.Data;
 import com.reactivetechnologies.mq.DataSerializable;
 import com.reactivetechnologies.mq.QueueService;
 import com.reactivetechnologies.mq.common.BlazeInternalError;
-import com.reactivetechnologies.mq.common.BlazingException;
+import com.reactivetechnologies.mq.common.BlazeMessagingException;
 import com.reactivetechnologies.mq.container.QueueContainer;
-import com.reactivetechnologies.mq.server.core.QRecord;
 
 /**
  * Abstract base class to be extended for registering queue listeners.
@@ -170,10 +170,10 @@ public abstract class AbstractQueueListener<T extends Data> implements QueueList
 	 * @throws IllegalAccessException 
 	 * @throws InstantiationException 
 	 * @throws IOException 
-	 * @throws BlazingException 
+	 * @throws BlazeMessagingException 
 	 * @throws Exception
 	 */
-	public final void fireOnMessage(QRecord obs) throws BlazingException  {
+	public final void fireOnMessage(QRecord obs) throws BlazeMessagingException  {
 		try 
 		{
 			T obj = dataType().newInstance();
@@ -188,7 +188,7 @@ public abstract class AbstractQueueListener<T extends Data> implements QueueList
 			try {
 				onMessage(obj);
 			} catch (Exception e) {
-				BlazingException ce = new BlazingException(e);
+				BlazeMessagingException ce = new BlazeMessagingException(e);
 				ce.setRecord(obj);
 				throw ce;
 			}

@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import com.reactivetechnologies.mq.server.core.QRecord;
+import com.reactivetechnologies.blaze.struct.QRecord;
 
 public interface QueueService {
 

@@ -15,13 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import com.reactivetechnologies.blaze.Blaze;
 import com.reactivetechnologies.mq.QueueService;
 import com.reactivetechnologies.mq.consume.Consumer;
 import com.reactivetechnologies.mq.consume.QueueListener;
 import com.reactivetechnologies.mq.consume.QueueListenerBuilder;
 import com.reactivetechnologies.mq.container.QueueContainer;
 import com.reactivetechnologies.mq.data.TextData;
-import com.reactivetechnologies.mq.server.Blaze;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest(classes = {Blaze.class})

@@ -15,9 +15,9 @@
  */
 package com.reactivetechnologies.mq.container;
 
+import com.reactivetechnologies.blaze.struct.QRecord;
 import com.reactivetechnologies.mq.Data;
 import com.reactivetechnologies.mq.consume.QueueListener;
-import com.reactivetechnologies.mq.server.core.QRecord;
 
 public interface QueueContainer extends Runnable{
 

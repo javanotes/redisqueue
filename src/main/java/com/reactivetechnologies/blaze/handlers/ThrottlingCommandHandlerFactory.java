@@ -13,27 +13,18 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.reactivetechnologies.mq.container;
+package com.reactivetechnologies.blaze.handlers;
 
-import java.util.concurrent.TimeoutException;
-
-import com.reactivetechnologies.blaze.struct.QRecord;
-import com.reactivetechnologies.blaze.throttle.MessageThrottled;
-
-public interface QueueContainerTask {
-
+import java.util.List;
+/**
+ * Extension point for 
+ * @author esutdal
+ *
+ */
+public interface ThrottlingCommandHandlerFactory {
 	/**
-	 * Fire callback on consumer.
-	 * @param qr
-	 */
-	void fireOnMessage(QRecord qr);
-
-	/**
-	 * Perform a blocking fetch for queue head.
+	 * Return the list of commands to be added to chain.
 	 * @return
-	 * @throws TimeoutException
-	 * @throws MessageThrottled 
 	 */
-	QRecord fetchHead() throws TimeoutException, MessageThrottled;
-
+	List<ThrottlingCommandHandler> getCommands();
 }

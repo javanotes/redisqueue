@@ -13,27 +13,15 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-package com.reactivetechnologies.mq.container;
+package com.reactivetechnologies.blaze.handlers;
 
-import java.util.concurrent.TimeoutException;
-
-import com.reactivetechnologies.blaze.struct.QRecord;
-import com.reactivetechnologies.blaze.throttle.MessageThrottled;
-
-public interface QueueContainerTask {
+public interface ConsumerRecoveryHandler {
 
 	/**
-	 * Fire callback on consumer.
-	 * @param qr
+	 * Handle all pending data which are still lying in INPROC queue. This will be invoked
+	 * once before the consumer starts.
+	 * @param exchange
+	 * @param route
 	 */
-	void fireOnMessage(QRecord qr);
-
-	/**
-	 * Perform a blocking fetch for queue head.
-	 * @return
-	 * @throws TimeoutException
-	 * @throws MessageThrottled 
-	 */
-	QRecord fetchHead() throws TimeoutException, MessageThrottled;
-
+	void handle(String exchange, String route);
 }
