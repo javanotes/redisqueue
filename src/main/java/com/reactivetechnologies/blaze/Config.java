@@ -15,7 +15,7 @@ import com.reactivetechnologies.blaze.handlers.ConsumerRecoveryHandler;
 import com.reactivetechnologies.blaze.handlers.DeadLetterHandler;
 import com.reactivetechnologies.blaze.handlers.ThrottlingCommandHandler;
 import com.reactivetechnologies.blaze.handlers.ThrottlingCommandHandlerFactory;
-import com.reactivetechnologies.blaze.ops.DataAccessor;
+import com.reactivetechnologies.blaze.ops.RedisDataAccessor;
 import com.reactivetechnologies.blaze.utils.JarFilesDeployer;
 
 /*
@@ -81,7 +81,7 @@ public class Config {
 		return new DefaultDeadLetterHandler();
 	}
 	@Bean
-	ConsumerRecoveryHandler recoveryHandler(DataAccessor redisOps)
+	ConsumerRecoveryHandler recoveryHandler(RedisDataAccessor redisOps)
 	{
 		return new DefaultConsumerRecoveryHandler();
 	}

@@ -18,10 +18,9 @@ package com.reactivetechnologies.blaze.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 
 import com.reactivetechnologies.blaze.handlers.ConsumerRecoveryHandler;
-import com.reactivetechnologies.blaze.ops.DataAccessor;
+import com.reactivetechnologies.blaze.ops.RedisDataAccessor;
 //TODO
 public class DefaultConsumerRecoveryHandler implements ConsumerRecoveryHandler {
 	/**
@@ -31,15 +30,42 @@ public class DefaultConsumerRecoveryHandler implements ConsumerRecoveryHandler {
 	public DefaultConsumerRecoveryHandler() {
 		super();
 	}
-	@Value("${blaze.instance.id}")
-	private String instanceId;
+	
 	@Autowired
-	private DataAccessor redisOps;
+	private RedisDataAccessor redisOps;
 	private static final Logger log = LoggerFactory.getLogger(DefaultConsumerRecoveryHandler.class);
+	
+	private long rpopInprocNlpushSource(String route, String exchange)
+	{
+		long count = 0;
+		boolean did = false;
+		do {
+			count++;
+			did = redisOps.queuede(exchange, route);
+		} while (did);
+		return count;
+	}
+	private void recoverIfPresent(String exchange, String route)
+	{
+		String listKey = redisOps.prepareInProcKey(exchange, route);
+		long size = redisOps.sizeOf(listKey);
+		
+		if(size > 0)
+		{
+			log.info("Will recover "+size+" items for re-enqueue");
+			long count = rpopInprocNlpushSource(route, exchange);
+			
+			if(count != size)
+			{
+				log.warn("Expected to process "+size+" items, but found "+count);
+			}
+		}
+	}
 	@Override
 	public void handle(String exchange, String route) {
-		String listKey = redisOps.prepareInProcKey(exchange, route);
+		
 		log.info("Checking in-processing messages for exchange '"+exchange+"', route '"+route+"'");
+		recoverIfPresent(exchange, route);
 	}
 
 }

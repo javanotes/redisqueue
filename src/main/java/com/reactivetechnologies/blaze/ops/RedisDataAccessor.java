@@ -16,6 +16,7 @@
 package com.reactivetechnologies.blaze.ops;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -40,16 +41,20 @@ import com.reactivetechnologies.blaze.struct.QRecord;
 import com.reactivetechnologies.mq.common.BlazeDuplicateInstanceException;
 
 @Component
-public class DataAccessor {
+public class RedisDataAccessor {
 
-	public static final String RPOPLPUSH_DESTN_SUFFIX = "$INPROC";
-	public static final String RPOPLPUSH_DESTN_SET = RPOPLPUSH_DESTN_SUFFIX + "-SET";
+	private static final String RPOPLPUSH_DESTN_SUFFIX = "$INPROC";
+	private static final String RPOPLPUSH_DESTN_SET = RPOPLPUSH_DESTN_SUFFIX + "-SET";
+	
 	@Value("${blaze.instance.id}")
 	private String instanceId;
+	@Value("${blaze.instance.id.force:false}")
+	private boolean forceApply;
+	
 	public String getInstanceId() {
 		return instanceId;
 	}
-	private static final Logger log = LoggerFactory.getLogger(DataAccessor.class);
+	private static final Logger log = LoggerFactory.getLogger(RedisDataAccessor.class);
 	/*
 	 * Note: On inspecting the Spring template bound*Ops() in Spring code, 
 	 * they seem to be plain wrapper classes exposing a subset of operations (restrictive decorator?), 
@@ -87,14 +92,30 @@ public class DataAccessor {
 			}
 		}
 		
+		if(forceApply){
+			setInstanceId();
+			return;
+		}
+		compareAndSetInstanceId();
+	}
+	private void compareAndSetInstanceId()
+	{
 		BoundSetOperations<String, String> setOps = stringRedis.boundSetOps(RPOPLPUSH_DESTN_SET);
 		if(setOps.isMember(instanceId))
 		{
 			throw new BlazeDuplicateInstanceException("'"+instanceId+"' not allowed");
 		}
-		long c = setOps.add(instanceId);
+		long c = setInstanceId(Optional.of(setOps));
 		if(c == 0)
 			throw new BlazeDuplicateInstanceException("'"+instanceId+"' not allowed");
+	}
+	private Long setInstanceId()
+	{
+		return setInstanceId(Optional.ofNullable(null));
+	}
+	private Long setInstanceId(Optional<BoundSetOperations<String, String>> setOps)
+	{
+		return setOps.orElse(stringRedis.boundSetOps(RPOPLPUSH_DESTN_SET)).add(instanceId) ;
 	}
 	/**
 	 * Prepare a hash key based on the exchange and route information. Presently it is
@@ -289,5 +310,28 @@ public class DataAccessor {
 	 */
 	public StringRedisSerializer getKeySerializer() {
 		return (StringRedisSerializer) redisTemplate.getKeySerializer();
+	}
+	/**
+	 * Get LLEN for the queue
+	 * @param listKey
+	 * @return 
+	 */
+	public Long sizeOf(String listKey) {
+		return redisTemplate.boundListOps(listKey).size();
+	}
+	/**
+	 * Enqueue items from the recovery (inproc) queue. These items will be appended at tail
+	 * of the source queue. So it is possible to get a backdated item popped now. This method
+	 * is thus opposite to  the {@link #dequeue()} method in action. Hence the fancy name 'queuede'!
+	 * @param xchng
+	 * @param route 
+	 * @return 
+	 */
+	public boolean queuede(String xchng, String route) {
+		String preparedKey = prepareListKey(xchng, route);
+		String inprocKey = prepareInProcKey(xchng, route);
+		
+		QRecord qr = redisTemplate.opsForList().rightPopAndLeftPush(inprocKey, preparedKey);
+		return qr != null;
 	}
 }

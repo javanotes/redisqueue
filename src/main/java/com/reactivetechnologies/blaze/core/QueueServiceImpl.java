@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import com.reactivetechnologies.blaze.ops.DataAccessor;
+import com.reactivetechnologies.blaze.ops.RedisDataAccessor;
 import com.reactivetechnologies.blaze.struct.QRecord;
 import com.reactivetechnologies.mq.Data;
 import com.reactivetechnologies.mq.QueueService;
@@ -31,7 +31,7 @@ public class QueueServiceImpl implements QueueService{
 	private static final Logger log = LoggerFactory.getLogger(QueueServiceImpl.class);
 	
 	@Autowired
-	private DataAccessor redisOps;
+	private RedisDataAccessor redisOps;
 	
 	@Override
 	public Integer size(String q) {
@@ -52,7 +52,7 @@ public class QueueServiceImpl implements QueueService{
 
 	private static String prepareKey(String xchangeKey, String routeKey)
 	{
-		return DataAccessor.prepareListKey(xchangeKey, routeKey);
+		return RedisDataAccessor.prepareListKey(xchangeKey, routeKey);
 	}
 	
 	private static QRecord dataToRecord(Data t, String xchangeKey, String routeKey)

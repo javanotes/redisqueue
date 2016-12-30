@@ -26,7 +26,7 @@ import org.springframework.util.Assert;
 
 import com.reactivetechnologies.blaze.handlers.ConsumerRecoveryHandler;
 import com.reactivetechnologies.blaze.handlers.DeadLetterHandler;
-import com.reactivetechnologies.blaze.ops.DataAccessor;
+import com.reactivetechnologies.blaze.ops.RedisDataAccessor;
 import com.reactivetechnologies.blaze.struct.QRecord;
 import com.reactivetechnologies.blaze.throttle.ConsumerThrottlerFactoryBean;
 import com.reactivetechnologies.mq.Data;
@@ -47,7 +47,7 @@ public class QueueContainerImpl implements Runnable, QueueContainer{
 	private static final Logger log = LoggerFactory.getLogger(QueueContainerImpl.class);
 	private ExecutorService asyncTasks;
 	@Autowired
-	private DataAccessor redisOps;
+	private RedisDataAccessor redisOps;
 	
 	private ExecutorService threadPool;
 	@Value("${consumer.worker.thread:0}")
@@ -221,7 +221,7 @@ public class QueueContainerImpl implements Runnable, QueueContainer{
 	 */
 	@Override
 	public void commit(QRecord qr, boolean success) {
-		String preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
+		String preparedKey = RedisDataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
 		//this can be made async
 		asyncTasks.submit(new Runnable() {
 			@Override
@@ -250,7 +250,7 @@ public class QueueContainerImpl implements Runnable, QueueContainer{
 	 */
 	@Override
 	public void rollback(QRecord qr) {
-		String preparedKey = DataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
+		String preparedKey = RedisDataAccessor.prepareListKey(qr.getKey().getExchange(), qr.getKey().getRoutingKey());
 		redisOps.endCommit(qr, preparedKey);
 		redisOps.reEnqueue(qr, preparedKey);
 	}
